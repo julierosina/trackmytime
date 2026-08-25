@@ -7,7 +7,7 @@ locally (``.streamlit/secrets.toml``) and on Streamlit Community Cloud.
 
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from datetime import date, datetime
 
 import gspread
 import pandas as pd
@@ -24,9 +24,7 @@ SCOPES = [
 COLUMNS = [
     "id",
     "date",
-    "start_time",
-    "end_time",
-    "duration_hours",
+    "duration_minutes",
     "extra_minutes",
     "participants",
     "notes",
@@ -147,9 +145,7 @@ def _row_number_for_id(ws, session_id) -> int | None:
 
 def add_session(
     session_date: date,
-    start_time: time,
-    end_time: time,
-    duration_hours: float,
+    duration_minutes: int,
     extra_minutes: int,
     participants: str,
     notes: str,
@@ -158,8 +154,7 @@ def add_session(
     ws = _get_worksheet()
     new_id = _next_id(ws)
     row = _to_row(
-        new_id, session_date, start_time, end_time,
-        duration_hours, extra_minutes, participants, notes,
+        new_id, session_date, duration_minutes, extra_minutes, participants, notes,
     )
     ws.append_row(row, value_input_option="RAW")
 
@@ -167,9 +162,7 @@ def add_session(
 def update_session(
     session_id,
     session_date: date,
-    start_time: time,
-    end_time: time,
-    duration_hours: float,
+    duration_minutes: int,
     extra_minutes: int,
     participants: str,
     notes: str,
@@ -180,10 +173,9 @@ def update_session(
     if row_number is None:
         return False
     row = _to_row(
-        session_id, session_date, start_time, end_time,
-        duration_hours, extra_minutes, participants, notes,
+        session_id, session_date, duration_minutes, extra_minutes, participants, notes,
     )
-    last_col = chr(ord("A") + len(COLUMNS) - 1)  # "H" for 8 columns
+    last_col = chr(ord("A") + len(COLUMNS) - 1)  # last column letter
     ws.update(
         range_name=f"A{row_number}:{last_col}{row_number}",
         values=[row],
@@ -205,15 +197,13 @@ def delete_session(session_id) -> bool:
 # --------------------------------------------------------------------------- #
 # Formatting helpers
 # --------------------------------------------------------------------------- #
-def _to_row(session_id, session_date, start_time, end_time,
-            duration_hours, extra_minutes, participants, notes) -> list:
+def _to_row(session_id, session_date, duration_minutes,
+            extra_minutes, participants, notes) -> list:
     """Serialize a session into the ordered list of cell values."""
     return [
         session_id,
         session_date.isoformat(),
-        start_time.strftime("%H:%M"),
-        end_time.strftime("%H:%M"),
-        duration_hours,
+        duration_minutes,
         extra_minutes,
         participants,
         notes,
@@ -230,31 +220,9 @@ def parse_participants(value) -> list:
     return [p for p in parts if p in PARTICIPANT_OPTIONS]
 
 
-def parse_time(value) -> time:
-    """Parse a stored time string ('HH:MM' or 'HH:MM:SS') into a time object."""
-    text = str(value).strip()
-    for fmt in ("%H:%M", "%H:%M:%S"):
-        try:
-            return datetime.strptime(text, fmt).time()
-        except ValueError:
-            continue
-    return time(0, 0)
-
-
 def parse_date(value) -> date:
     """Parse a stored ISO date string into a date object (falls back to today)."""
     try:
         return datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
     except ValueError:
         return date.today()
-
-
-def compute_duration_hours(start_time: time, end_time: time) -> float:
-    """Hours between two same-day times, rounded to 2 dp.
-
-    Returns a negative number if end precedes start; the UI validates against
-    that so a negative duration is never silently written.
-    """
-    anchor = date.today()
-    delta = datetime.combine(anchor, end_time) - datetime.combine(anchor, start_time)
-    return round(delta.total_seconds() / 3600, 2)

@@ -38,14 +38,14 @@ runs locally and on Streamlit Community Cloud.
 3. Put these **exact column headers** in row 1, in this order:
 
    ```
-   id | date | start_time | end_time | duration_hours | extra_minutes | participants | notes
+   id | date | duration_minutes | extra_minutes | participants | notes
    ```
 
-   `participants` holds who a session involved — one or more of `Student`,
-   `Nico`, `Company`, `Just me (prep/reports)`, stored comma-separated
-   (e.g. `Student, Company`). `extra_minutes` is optional independent time
-   (prep/review/reports) in minutes, added on top of the session length when
-   totals are computed.
+   `duration_minutes` is the session length in minutes. `extra_minutes` is
+   optional independent time (prep/review/reports) in minutes, added on top of
+   the session length when totals are computed. `participants` holds who a
+   session involved — one or more of `Student`, `Nico`, `Company`,
+   `Just me (prep/reports)`, stored comma-separated (e.g. `Student, Company`).
 
    > If you leave the sheet empty, the app writes these headers automatically on
    > first run — but only if row 1 is blank.
@@ -54,8 +54,7 @@ Data conventions written by the app:
 
 - `id` — incrementing integer (1, 2, 3, …)
 - `date` — `YYYY-MM-DD`
-- `start_time` / `end_time` — `HH:MM` (24-hour)
-- `duration_hours` — decimal hours (e.g. `1.5`)
+- `duration_minutes` / `extra_minutes` — whole minutes (e.g. `45`)
 
 ## 2. Create a Google service account
 

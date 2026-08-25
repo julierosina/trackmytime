@@ -10,7 +10,7 @@ Backend: a single Google Sheet worksheet (see sheets.py).
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -20,6 +20,36 @@ from PIL import Image
 import sheets
 
 LOGO_PATH = str(Path(__file__).parent / "assets" / "logo.png")
+
+# Quick-pick session lengths (label -> minutes); a "Custom…" option lets the
+# user type any value instead.
+LENGTH_PRESETS = {"10 min": 10, "20 min": 20, "30 min": 30, "45 min": 45, "1 hour": 60}
+
+
+def pick_minutes(default: int, key_prefix: str) -> int:
+    """Render quick-pick length options plus a custom minutes box; return minutes.
+
+    If `default` matches a preset it's pre-selected; otherwise the picker starts
+    on "Custom…" pre-filled with `default`.
+    """
+    labels = list(LENGTH_PRESETS.keys()) + ["Custom…"]
+    if default in LENGTH_PRESETS.values():
+        index = list(LENGTH_PRESETS.values()).index(default)
+        custom_default = 0
+    else:
+        index = len(labels) - 1  # "Custom…"
+        custom_default = int(default)
+
+    choice = st.radio(
+        "Session length", labels, index=index, horizontal=True,
+        key=f"{key_prefix}_length",
+    )
+    custom = st.number_input(
+        "Custom length (minutes)", min_value=0, value=custom_default, step=5,
+        key=f"{key_prefix}_custom",
+        help="Only used when “Custom…” is selected above.",
+    )
+    return int(custom) if choice == "Custom…" else LENGTH_PRESETS[choice]
 
 st.set_page_config(
     page_title="Track your time! Please and thank you",
@@ -43,10 +73,10 @@ def load_data() -> pd.DataFrame:
         return df
     df = df.copy()
     df["date_parsed"] = pd.to_datetime(df["date"], errors="coerce")
-    df["duration_hours"] = pd.to_numeric(df["duration_hours"], errors="coerce").fillna(0.0)
+    df["duration_minutes"] = pd.to_numeric(df["duration_minutes"], errors="coerce").fillna(0.0)
     df["extra_minutes"] = pd.to_numeric(df["extra_minutes"], errors="coerce").fillna(0.0)
-    # Total real time = the session block plus any extra independent minutes.
-    df["total_hours"] = df["duration_hours"] + df["extra_minutes"] / 60.0
+    # Total real time = the session length plus any extra independent minutes.
+    df["total_hours"] = (df["duration_minutes"] + df["extra_minutes"]) / 60.0
     df["month"] = df["date_parsed"].dt.to_period("M")
     return df
 
@@ -81,9 +111,7 @@ with log_tab:
     st.subheader("Log a session")
     with st.form("add_session", clear_on_submit=True):
         session_date = st.date_input("Date", value=date.today(), format="DD/MM/YYYY")
-        col1, col2 = st.columns(2)
-        start_time = col1.time_input("Start time", value=time(9, 0), step=300)
-        end_time = col2.time_input("End time", value=time(10, 0), step=300)
+        duration_minutes = pick_minutes(default=30, key_prefix="log")
         participants = st.multiselect(
             "Who was this session with?", sheets.PARTICIPANT_OPTIONS,
             help="Tick everyone the session involved.",
@@ -99,21 +127,20 @@ with log_tab:
         submitted = st.form_submit_button("Add session", type="primary")
 
     if submitted:
-        duration = sheets.compute_duration_hours(start_time, end_time)
-        if duration <= 0:
-            st.error("End time must be after start time.")
+        if duration_minutes <= 0:
+            st.error("Enter a session length greater than 0 minutes.")
         elif not participants:
             st.error("Pick at least one person under “Who was this session with?”.")
         else:
             sheets.add_session(
-                session_date, start_time, end_time, duration,
-                int(extra_minutes), ", ".join(participants), notes.strip(),
+                session_date, int(duration_minutes), int(extra_minutes),
+                ", ".join(participants), notes.strip(),
             )
             sheets.refresh()
-            total = duration + int(extra_minutes) / 60.0
+            total = (int(duration_minutes) + int(extra_minutes)) / 60.0
             st.success(
                 f"Logged {total:.2f} h on {session_date.strftime('%d/%m/%Y')} "
-                f"({duration:.2f} h session + {int(extra_minutes)} min extra)."
+                f"({int(duration_minutes)} min session + {int(extra_minutes)} min extra)."
             )
             st.rerun()
 
@@ -129,13 +156,13 @@ with manage_tab:
     else:
         display = (
             data.sort_values("date_parsed", ascending=False)
-            [["id", "date_parsed", "start_time", "end_time", "duration_hours",
+            [["id", "date_parsed", "duration_minutes",
               "extra_minutes", "participants", "notes"]]
             .reset_index(drop=True)
         )
         # Show the date as dd/mm/yyyy (falls back to the raw value if unparsed).
         display["date"] = display["date_parsed"].dt.strftime("%d/%m/%Y")
-        display = display[["id", "date", "start_time", "end_time", "duration_hours",
+        display = display[["id", "date", "duration_minutes",
                            "extra_minutes", "participants", "notes"]]
         st.dataframe(display, use_container_width=True, hide_index=True)
 
@@ -143,7 +170,7 @@ with manage_tab:
         options = {}
         for _, r in display.iterrows():
             label = (
-                f"#{r['id']} · {r['date']} {r['start_time']}–{r['end_time']} · "
+                f"#{r['id']} · {r['date']} · {int(r['duration_minutes'])} min · "
                 f"{r['participants'] or '—'}"
             )
             options[label] = r["id"]
@@ -151,42 +178,42 @@ with manage_tab:
         selected_label = st.selectbox("Select a session", list(options.keys()))
         selected_id = options[selected_label]
         row = data[data["id"].astype(str) == str(selected_id)].iloc[0]
+        # Per-session key suffix so switching rows resets the fields.
+        k = f"edit_{selected_id}"
 
         with st.form("edit_session"):
             e_date = st.date_input(
-                "Date", value=sheets.parse_date(row["date"]), format="DD/MM/YYYY"
+                "Date", value=sheets.parse_date(row["date"]), format="DD/MM/YYYY",
+                key=f"{k}_date",
             )
-            c1, c2 = st.columns(2)
-            e_start = c1.time_input(
-                "Start time", value=sheets.parse_time(row["start_time"]), step=300
-            )
-            e_end = c2.time_input(
-                "End time", value=sheets.parse_time(row["end_time"]), step=300
+            e_minutes = pick_minutes(
+                default=int(float(row["duration_minutes"] or 0)), key_prefix=k
             )
             e_participants = st.multiselect(
                 "Who was this session with?", sheets.PARTICIPANT_OPTIONS,
                 default=sheets.parse_participants(row["participants"]),
+                key=f"{k}_participants",
             )
             e_extra = st.number_input(
                 "Additional independent time (prep, review, reports)",
                 min_value=0, value=int(float(row["extra_minutes"] or 0)), step=5,
+                key=f"{k}_extra",
                 help="In minutes. Added on top of the session length.",
             )
-            e_notes = st.text_area("Notes", value=str(row["notes"]))
+            e_notes = st.text_area("Notes", value=str(row["notes"]), key=f"{k}_notes")
 
             save_col, del_col = st.columns(2)
             save = save_col.form_submit_button("Save changes", type="primary")
             delete = del_col.form_submit_button("Delete session")
 
         if save:
-            duration = sheets.compute_duration_hours(e_start, e_end)
-            if duration <= 0:
-                st.error("End time must be after start time.")
+            if e_minutes <= 0:
+                st.error("Enter a session length greater than 0 minutes.")
             elif not e_participants:
                 st.error("Pick at least one person under “Who was this session with?”.")
             else:
                 sheets.update_session(
-                    selected_id, e_date, e_start, e_end, duration,
+                    selected_id, e_date, int(e_minutes),
                     int(e_extra), ", ".join(e_participants), e_notes.strip(),
                 )
                 sheets.refresh()
