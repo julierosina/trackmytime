@@ -27,8 +27,10 @@ st.set_page_config(
     layout="centered",
 )
 st.logo(LOGO_PATH)  # small logo in the top-left corner
-st.image(LOGO_PATH, width=120)  # larger logo on the landing page
-st.title("Track your time! Please and thank you")
+st.markdown(
+    "<h1 style='color:#16256C;'>Track your time! Please and thank you</h1>",
+    unsafe_allow_html=True,
+)
 
 
 # --------------------------------------------------------------------------- #

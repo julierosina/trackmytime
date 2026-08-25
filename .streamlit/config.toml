@@ -1,0 +1,6 @@
+# App theme — colors taken from the alarm-clock logo.
+[theme]
+primaryColor = "#F5391F"          # red accent: buttons, sliders, active tabs
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#FBF3D5"  # cream, matches the clock face
+textColor = "#16256C"             # navy, matches the logo background
