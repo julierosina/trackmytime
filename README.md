@@ -1,4 +1,4 @@
-# ⏱️ Tutor Hours Tracker
+# Track your time! Please and thank you
 
 A minimal Streamlit app to track the hours a tutor actually works each month.
 The tutor is paid a flat monthly fee for a set number of contracted hours but

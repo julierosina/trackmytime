@@ -17,8 +17,8 @@ import streamlit as st
 
 import sheets
 
-st.set_page_config(page_title="Tutor Hours Tracker", page_icon="⏱️", layout="centered")
-st.title("⏱️ Tutor Hours Tracker")
+st.set_page_config(page_title="Track your time! Please and thank you", layout="centered")
+st.title("Track your time! Please and thank you")
 
 
 # --------------------------------------------------------------------------- #
@@ -55,7 +55,7 @@ except Exception as exc:  # noqa: BLE001 — surface any connection error cleanl
 
 
 log_tab, manage_tab, summary_tab, history_tab = st.tabs(
-    ["➕ Log session", "✏️ Edit / delete", "📊 Monthly summary", "📈 History"]
+    ["Log session", "Edit / delete", "Monthly summary", "History"]
 )
 
 
