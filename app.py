@@ -65,7 +65,7 @@ log_tab, manage_tab, summary_tab, history_tab = st.tabs(
 with log_tab:
     st.subheader("Log a session")
     with st.form("add_session", clear_on_submit=True):
-        session_date = st.date_input("Date", value=date.today())
+        session_date = st.date_input("Date", value=date.today(), format="DD/MM/YYYY")
         col1, col2 = st.columns(2)
         start_time = col1.time_input("Start time", value=time(9, 0), step=300)
         end_time = col2.time_input("End time", value=time(10, 0), step=300)
@@ -89,7 +89,7 @@ with log_tab:
                 ", ".join(participants), subject.strip(), notes.strip(),
             )
             sheets.refresh()
-            st.success(f"Logged {duration:.2f} h on {session_date.isoformat()}.")
+            st.success(f"Logged {duration:.2f} h on {session_date.strftime('%d/%m/%Y')}.")
             st.rerun()
 
 
@@ -104,10 +104,14 @@ with manage_tab:
     else:
         display = (
             data.sort_values("date_parsed", ascending=False)
-            [["id", "date", "start_time", "end_time", "duration_hours",
+            [["id", "date_parsed", "start_time", "end_time", "duration_hours",
               "participants", "subject", "notes"]]
             .reset_index(drop=True)
         )
+        # Show the date as dd/mm/yyyy (falls back to the raw value if unparsed).
+        display["date"] = display["date_parsed"].dt.strftime("%d/%m/%Y")
+        display = display[["id", "date", "start_time", "end_time", "duration_hours",
+                           "participants", "subject", "notes"]]
         st.dataframe(display, use_container_width=True, hide_index=True)
 
         # Build a friendly label -> id map for the selector.
@@ -124,7 +128,9 @@ with manage_tab:
         row = data[data["id"].astype(str) == str(selected_id)].iloc[0]
 
         with st.form("edit_session"):
-            e_date = st.date_input("Date", value=sheets.parse_date(row["date"]))
+            e_date = st.date_input(
+                "Date", value=sheets.parse_date(row["date"]), format="DD/MM/YYYY"
+            )
             c1, c2 = st.columns(2)
             e_start = c1.time_input(
                 "Start time", value=sheets.parse_time(row["start_time"]), step=300
