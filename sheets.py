@@ -27,13 +27,13 @@ COLUMNS = [
     "start_time",
     "end_time",
     "duration_hours",
+    "extra_minutes",
     "participants",
-    "subject",
     "notes",
 ]
 
 # Fixed set of who a session can involve (single-student use case).
-PARTICIPANT_OPTIONS = ["Student", "Nico", "Company"]
+PARTICIPANT_OPTIONS = ["Student", "Nico", "Company", "Just me (prep/reports)"]
 
 
 # --------------------------------------------------------------------------- #
@@ -150,8 +150,8 @@ def add_session(
     start_time: time,
     end_time: time,
     duration_hours: float,
+    extra_minutes: int,
     participants: str,
-    subject: str,
     notes: str,
 ) -> None:
     """Append a new session row and return nothing (caller refreshes)."""
@@ -159,7 +159,7 @@ def add_session(
     new_id = _next_id(ws)
     row = _to_row(
         new_id, session_date, start_time, end_time,
-        duration_hours, participants, subject, notes,
+        duration_hours, extra_minutes, participants, notes,
     )
     ws.append_row(row, value_input_option="RAW")
 
@@ -170,8 +170,8 @@ def update_session(
     start_time: time,
     end_time: time,
     duration_hours: float,
+    extra_minutes: int,
     participants: str,
-    subject: str,
     notes: str,
 ) -> bool:
     """Overwrite the row with the given id. Returns True if the row was found."""
@@ -181,7 +181,7 @@ def update_session(
         return False
     row = _to_row(
         session_id, session_date, start_time, end_time,
-        duration_hours, participants, subject, notes,
+        duration_hours, extra_minutes, participants, notes,
     )
     last_col = chr(ord("A") + len(COLUMNS) - 1)  # "H" for 8 columns
     ws.update(
@@ -206,7 +206,7 @@ def delete_session(session_id) -> bool:
 # Formatting helpers
 # --------------------------------------------------------------------------- #
 def _to_row(session_id, session_date, start_time, end_time,
-            duration_hours, participants, subject, notes) -> list:
+            duration_hours, extra_minutes, participants, notes) -> list:
     """Serialize a session into the ordered list of cell values."""
     return [
         session_id,
@@ -214,8 +214,8 @@ def _to_row(session_id, session_date, start_time, end_time,
         start_time.strftime("%H:%M"),
         end_time.strftime("%H:%M"),
         duration_hours,
+        extra_minutes,
         participants,
-        subject,
         notes,
     ]
 

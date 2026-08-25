@@ -44,6 +44,9 @@ def load_data() -> pd.DataFrame:
     df = df.copy()
     df["date_parsed"] = pd.to_datetime(df["date"], errors="coerce")
     df["duration_hours"] = pd.to_numeric(df["duration_hours"], errors="coerce").fillna(0.0)
+    df["extra_minutes"] = pd.to_numeric(df["extra_minutes"], errors="coerce").fillna(0.0)
+    # Total real time = the session block plus any extra independent minutes.
+    df["total_hours"] = df["duration_hours"] + df["extra_minutes"] / 60.0
     df["month"] = df["date_parsed"].dt.to_period("M")
     return df
 
@@ -85,7 +88,13 @@ with log_tab:
             "Who was this session with?", sheets.PARTICIPANT_OPTIONS,
             help="Tick everyone the session involved.",
         )
-        subject = st.text_input("Subject")
+        extra_minutes = st.number_input(
+            "Do you want to log additional independent time for this session "
+            "(prep, review, reports)?",
+            min_value=0, value=0, step=5,
+            help="In minutes. Leave at 0 if none. This is added on top of the "
+                 "session length above.",
+        )
         notes = st.text_area("Notes", placeholder="Optional")
         submitted = st.form_submit_button("Add session", type="primary")
 
@@ -98,10 +107,14 @@ with log_tab:
         else:
             sheets.add_session(
                 session_date, start_time, end_time, duration,
-                ", ".join(participants), subject.strip(), notes.strip(),
+                int(extra_minutes), ", ".join(participants), notes.strip(),
             )
             sheets.refresh()
-            st.success(f"Logged {duration:.2f} h on {session_date.strftime('%d/%m/%Y')}.")
+            total = duration + int(extra_minutes) / 60.0
+            st.success(
+                f"Logged {total:.2f} h on {session_date.strftime('%d/%m/%Y')} "
+                f"({duration:.2f} h session + {int(extra_minutes)} min extra)."
+            )
             st.rerun()
 
 
@@ -117,13 +130,13 @@ with manage_tab:
         display = (
             data.sort_values("date_parsed", ascending=False)
             [["id", "date_parsed", "start_time", "end_time", "duration_hours",
-              "participants", "subject", "notes"]]
+              "extra_minutes", "participants", "notes"]]
             .reset_index(drop=True)
         )
         # Show the date as dd/mm/yyyy (falls back to the raw value if unparsed).
         display["date"] = display["date_parsed"].dt.strftime("%d/%m/%Y")
         display = display[["id", "date", "start_time", "end_time", "duration_hours",
-                           "participants", "subject", "notes"]]
+                           "extra_minutes", "participants", "notes"]]
         st.dataframe(display, use_container_width=True, hide_index=True)
 
         # Build a friendly label -> id map for the selector.
@@ -131,7 +144,7 @@ with manage_tab:
         for _, r in display.iterrows():
             label = (
                 f"#{r['id']} · {r['date']} {r['start_time']}–{r['end_time']} · "
-                f"{r['participants'] or '—'} ({r['subject'] or '—'})"
+                f"{r['participants'] or '—'}"
             )
             options[label] = r["id"]
 
@@ -154,7 +167,11 @@ with manage_tab:
                 "Who was this session with?", sheets.PARTICIPANT_OPTIONS,
                 default=sheets.parse_participants(row["participants"]),
             )
-            e_subject = st.text_input("Subject", value=str(row["subject"]))
+            e_extra = st.number_input(
+                "Additional independent time (prep, review, reports)",
+                min_value=0, value=int(float(row["extra_minutes"] or 0)), step=5,
+                help="In minutes. Added on top of the session length.",
+            )
             e_notes = st.text_area("Notes", value=str(row["notes"]))
 
             save_col, del_col = st.columns(2)
@@ -170,7 +187,7 @@ with manage_tab:
             else:
                 sheets.update_session(
                     selected_id, e_date, e_start, e_end, duration,
-                    ", ".join(e_participants), e_subject.strip(), e_notes.strip(),
+                    int(e_extra), ", ".join(e_participants), e_notes.strip(),
                 )
                 sheets.refresh()
                 st.success("Session updated.")
@@ -217,7 +234,7 @@ with summary_tab:
         month_hours = 0.0
     else:
         month_hours = float(
-            data.loc[data["month"] == chosen_period, "duration_hours"].sum()
+            data.loc[data["month"] == chosen_period, "total_hours"].sum()
         )
 
     difference = month_hours - contracted
@@ -251,7 +268,7 @@ with history_tab:
     else:
         monthly = (
             data.dropna(subset=["month"])
-            .groupby("month")["duration_hours"].sum()
+            .groupby("month")["total_hours"].sum()
             .sort_index()
         )
         monthly.index = monthly.index.astype(str)
