@@ -1,4 +1,5 @@
-streamlit>=1.30
+streamlit>=1.36
 gspread>=6.0.0
 google-auth>=2.20
 pandas>=2.0
+pillow>=10.0

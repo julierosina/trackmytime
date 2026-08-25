@@ -11,13 +11,23 @@ Backend: a single Google Sheet worksheet (see sheets.py).
 from __future__ import annotations
 
 from datetime import date, time
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from PIL import Image
 
 import sheets
 
-st.set_page_config(page_title="Track your time! Please and thank you", layout="centered")
+LOGO_PATH = str(Path(__file__).parent / "assets" / "logo.png")
+
+st.set_page_config(
+    page_title="Track your time! Please and thank you",
+    page_icon=Image.open(LOGO_PATH),  # browser tab / bookmark icon
+    layout="centered",
+)
+st.logo(LOGO_PATH)  # small logo in the top-left corner
+st.image(LOGO_PATH, width=120)  # larger logo on the landing page
 st.title("Track your time! Please and thank you")
 
 
