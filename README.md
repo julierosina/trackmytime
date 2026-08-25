@@ -38,8 +38,11 @@ runs locally and on Streamlit Community Cloud.
 3. Put these **exact column headers** in row 1, in this order:
 
    ```
-   id | date | start_time | end_time | duration_hours | student_name | subject | notes
+   id | date | start_time | end_time | duration_hours | participants | subject | notes
    ```
+
+   `participants` holds who a session involved — one or more of `Student`,
+   `Nico`, `Company`, stored comma-separated (e.g. `Student, Company`).
 
    > If you leave the sheet empty, the app writes these headers automatically on
    > first run — but only if row 1 is blank.

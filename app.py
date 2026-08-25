@@ -69,7 +69,10 @@ with log_tab:
         col1, col2 = st.columns(2)
         start_time = col1.time_input("Start time", value=time(9, 0), step=300)
         end_time = col2.time_input("End time", value=time(10, 0), step=300)
-        student_name = st.text_input("Student name")
+        participants = st.multiselect(
+            "Who was this session with?", sheets.PARTICIPANT_OPTIONS,
+            help="Tick everyone the session involved.",
+        )
         subject = st.text_input("Subject")
         notes = st.text_area("Notes", placeholder="Optional")
         submitted = st.form_submit_button("Add session", type="primary")
@@ -78,10 +81,12 @@ with log_tab:
         duration = sheets.compute_duration_hours(start_time, end_time)
         if duration <= 0:
             st.error("End time must be after start time.")
+        elif not participants:
+            st.error("Pick at least one person under “Who was this session with?”.")
         else:
             sheets.add_session(
                 session_date, start_time, end_time, duration,
-                student_name.strip(), subject.strip(), notes.strip(),
+                ", ".join(participants), subject.strip(), notes.strip(),
             )
             sheets.refresh()
             st.success(f"Logged {duration:.2f} h on {session_date.isoformat()}.")
@@ -100,7 +105,7 @@ with manage_tab:
         display = (
             data.sort_values("date_parsed", ascending=False)
             [["id", "date", "start_time", "end_time", "duration_hours",
-              "student_name", "subject", "notes"]]
+              "participants", "subject", "notes"]]
             .reset_index(drop=True)
         )
         st.dataframe(display, use_container_width=True, hide_index=True)
@@ -110,7 +115,7 @@ with manage_tab:
         for _, r in display.iterrows():
             label = (
                 f"#{r['id']} · {r['date']} {r['start_time']}–{r['end_time']} · "
-                f"{r['student_name'] or '—'} ({r['subject'] or '—'})"
+                f"{r['participants'] or '—'} ({r['subject'] or '—'})"
             )
             options[label] = r["id"]
 
@@ -127,7 +132,10 @@ with manage_tab:
             e_end = c2.time_input(
                 "End time", value=sheets.parse_time(row["end_time"]), step=300
             )
-            e_student = st.text_input("Student name", value=str(row["student_name"]))
+            e_participants = st.multiselect(
+                "Who was this session with?", sheets.PARTICIPANT_OPTIONS,
+                default=sheets.parse_participants(row["participants"]),
+            )
             e_subject = st.text_input("Subject", value=str(row["subject"]))
             e_notes = st.text_area("Notes", value=str(row["notes"]))
 
@@ -139,10 +147,12 @@ with manage_tab:
             duration = sheets.compute_duration_hours(e_start, e_end)
             if duration <= 0:
                 st.error("End time must be after start time.")
+            elif not e_participants:
+                st.error("Pick at least one person under “Who was this session with?”.")
             else:
                 sheets.update_session(
                     selected_id, e_date, e_start, e_end, duration,
-                    e_student.strip(), e_subject.strip(), e_notes.strip(),
+                    ", ".join(e_participants), e_subject.strip(), e_notes.strip(),
                 )
                 sheets.refresh()
                 st.success("Session updated.")

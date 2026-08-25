@@ -27,10 +27,13 @@ COLUMNS = [
     "start_time",
     "end_time",
     "duration_hours",
-    "student_name",
+    "participants",
     "subject",
     "notes",
 ]
+
+# Fixed set of who a session can involve (single-student use case).
+PARTICIPANT_OPTIONS = ["Student", "Nico", "Company"]
 
 
 # --------------------------------------------------------------------------- #
@@ -147,7 +150,7 @@ def add_session(
     start_time: time,
     end_time: time,
     duration_hours: float,
-    student_name: str,
+    participants: str,
     subject: str,
     notes: str,
 ) -> None:
@@ -156,7 +159,7 @@ def add_session(
     new_id = _next_id(ws)
     row = _to_row(
         new_id, session_date, start_time, end_time,
-        duration_hours, student_name, subject, notes,
+        duration_hours, participants, subject, notes,
     )
     ws.append_row(row, value_input_option="RAW")
 
@@ -167,7 +170,7 @@ def update_session(
     start_time: time,
     end_time: time,
     duration_hours: float,
-    student_name: str,
+    participants: str,
     subject: str,
     notes: str,
 ) -> bool:
@@ -178,7 +181,7 @@ def update_session(
         return False
     row = _to_row(
         session_id, session_date, start_time, end_time,
-        duration_hours, student_name, subject, notes,
+        duration_hours, participants, subject, notes,
     )
     last_col = chr(ord("A") + len(COLUMNS) - 1)  # "H" for 8 columns
     ws.update(
@@ -203,7 +206,7 @@ def delete_session(session_id) -> bool:
 # Formatting helpers
 # --------------------------------------------------------------------------- #
 def _to_row(session_id, session_date, start_time, end_time,
-            duration_hours, student_name, subject, notes) -> list:
+            duration_hours, participants, subject, notes) -> list:
     """Serialize a session into the ordered list of cell values."""
     return [
         session_id,
@@ -211,10 +214,20 @@ def _to_row(session_id, session_date, start_time, end_time,
         start_time.strftime("%H:%M"),
         end_time.strftime("%H:%M"),
         duration_hours,
-        student_name,
+        participants,
         subject,
         notes,
     ]
+
+
+def parse_participants(value) -> list:
+    """Split a stored 'A, B' participants string into a list of known options.
+
+    Values not in PARTICIPANT_OPTIONS are dropped so the result is always a
+    valid default for st.multiselect.
+    """
+    parts = [p.strip() for p in str(value).split(",") if p.strip()]
+    return [p for p in parts if p in PARTICIPANT_OPTIONS]
 
 
 def parse_time(value) -> time:
