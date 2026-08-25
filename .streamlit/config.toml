@@ -2,5 +2,5 @@
 [theme]
 primaryColor = "#F5391F"          # red accent: buttons, sliders, active tabs
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#FBF3D5"  # cream, matches the clock face
+secondaryBackgroundColor = "#F2F4F7"  # neutral light gray for input fields
 textColor = "#16256C"             # navy, matches the logo background
